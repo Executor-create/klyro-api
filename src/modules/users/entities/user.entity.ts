@@ -10,11 +10,14 @@ export class User implements Partial<PrismaUser> {
   email!: string;
 
   @ApiProperty({ type: String })
-  username!: string | null;
+  username!: string;
 
   @Exclude()
   @ApiHideProperty()
   password!: string;
+
+  @ApiProperty({ type: String, nullable: true })
+  token?: string | null;
 
   @ApiProperty()
   createdAt!: Date;
