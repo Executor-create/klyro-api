@@ -19,7 +19,7 @@ export class AuthService {
     private readonly userRepository: UserRepository,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
-  ) {}
+  ) { }
 
   async signUp(body: SignUpDto): Promise<User> {
     const { username, email, password, confirmPassword } = body;
@@ -29,7 +29,7 @@ export class AuthService {
     const hashedPassword = await this.hashPassword(password);
 
     try {
-      const savedUser = await this.userRepository.createUser({
+      const savedUser = await this.userRepository.create({
         username,
         email,
         password: hashedPassword,
@@ -100,7 +100,7 @@ export class AuthService {
   }
 
   async logout(userId: string): Promise<void> {
-    await this.userRepository.updateUser(userId, {
+    await this.userRepository.update(userId, {
       refreshToken: null,
     });
   }
@@ -141,7 +141,7 @@ export class AuthService {
   ): Promise<void> {
     const hashedRefreshToken = await bcrypt.hash(refreshToken, 10);
 
-    await this.userRepository.updateUser(userId, {
+    await this.userRepository.update(userId, {
       refreshToken: hashedRefreshToken,
     });
   }

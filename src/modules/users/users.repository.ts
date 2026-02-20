@@ -5,9 +5,9 @@ import { Prisma } from 'generated/prisma/client';
 
 @Injectable()
 export class UserRepository {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
-  async createUser(user: Prisma.UserCreateInput): Promise<User | null> {
+  async create(user: Prisma.UserCreateInput): Promise<User | null> {
     return this.prisma.user.create({
       data: user,
     });
@@ -37,7 +37,7 @@ export class UserRepository {
     return user;
   }
 
-  async updateUser(id: string, data: Prisma.UserUpdateInput): Promise<User> {
+  async update(id: string, data: Prisma.UserUpdateInput): Promise<User> {
     return this.prisma.user.update({
       where: { id },
       data,
