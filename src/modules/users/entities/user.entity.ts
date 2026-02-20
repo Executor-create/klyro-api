@@ -16,8 +16,9 @@ export class User implements Partial<PrismaUser> {
   @ApiHideProperty()
   password!: string;
 
-  @ApiProperty({ type: String, nullable: true })
-  token?: string | null;
+  @Exclude()
+  @ApiHideProperty()
+  refreshToken?: string | null;
 
   @ApiProperty()
   createdAt!: Date;
