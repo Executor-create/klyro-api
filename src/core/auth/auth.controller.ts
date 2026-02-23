@@ -14,11 +14,14 @@ import { ApiResponse, ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { LoginDto } from './dto/login.dto';
 import { AuthGuard } from 'src/shared/guards/auth.guard';
 import {
-  AuthResponseDto,
+  AuthResponse,
   RefreshTokenDto,
+  SignUpResponse,
   TokensDto,
 } from './dto/auth-response.dto';
 import { UserId } from 'src/shared/decorators/user.decorator';
+import { VerifyOtpDto } from './dto/verify-otp.dto';
+import { ResendOtpDto } from './dto/resend-otp.dto';
 
 @ApiTags('Authentication')
 @Controller('auth')
@@ -30,14 +33,44 @@ export class AuthController {
   @ApiResponse({
     status: 201,
     description: 'User successfully created',
-    type: AuthResponseDto,
+    type: SignUpResponse,
   })
   @ApiResponse({
     status: 400,
     description: 'Bad Request',
   })
-  async signUp(@Body() body: SignUpDto): Promise<User> {
+  async signUp(@Body() body: SignUpDto): Promise<SignUpResponse> {
     return this.authService.signUp(body);
+  }
+
+  @Post('verify-otp')
+  @HttpCode(HttpStatus.OK)
+  @ApiResponse({
+    status: 200,
+    description: 'OTP verified successfully',
+    type: AuthResponse,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid OTP or OTP expired',
+  })
+  @Post('verify-otp')
+  async verifyOtp(@Body() body: VerifyOtpDto): Promise<AuthResponse> {
+    return this.authService.verifyOtp(body.userId, body.otp);
+  }
+
+  @Post('resend-otp')
+  @HttpCode(HttpStatus.OK)
+  @ApiResponse({
+    status: 200,
+    description: 'OTP resent successfully',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Bad Request',
+  })
+  async resendOtp(@Body() body: ResendOtpDto): Promise<{ message: string }> {
+    return this.authService.resendOtp(body.userId);
   }
 
   @Post('login')
@@ -45,13 +78,13 @@ export class AuthController {
   @ApiResponse({
     status: 200,
     description: 'User successfully authenticated',
-    type: AuthResponseDto,
+    type: AuthResponse,
   })
   @ApiResponse({
     status: 401,
     description: 'Unauthorized',
   })
-  async login(@Body() body: LoginDto): Promise<AuthResponseDto> {
+  async login(@Body() body: LoginDto): Promise<AuthResponse> {
     return this.authService.login(body);
   }
 
