@@ -11,7 +11,13 @@ import { LoginDto } from './dto/login.dto';
 import { UserRepository } from 'src/modules/users/users.repository';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
-import { AuthResponseDto, TokensDto } from './dto/auth-response.dto';
+import {
+  AuthResponse,
+  SignUpResponse,
+  TokensDto,
+} from './dto/auth-response.dto';
+import { MailService } from 'src/mail/mail.service';
+import { AuthRepository } from './auth.repository';
 
 @Injectable()
 export class AuthService {
@@ -19,9 +25,11 @@ export class AuthService {
     private readonly userRepository: UserRepository,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
-  ) { }
+    private readonly mailService: MailService,
+    private readonly authRepository: AuthRepository,
+  ) {}
 
-  async signUp(body: SignUpDto): Promise<User> {
+  async signUp(body: SignUpDto): Promise<SignUpResponse> {
     const { username, email, password, confirmPassword } = body;
 
     this.validateConfirmPassword(password, confirmPassword);
@@ -39,7 +47,20 @@ export class AuthService {
         throw new InternalServerErrorException('Failed to create user');
       }
 
-      return new User(savedUser);
+      const otp = await this.generateOtp(savedUser.id);
+
+      await this.mailService.sendConfirmationEmail({
+        to: email,
+        context: {
+          username,
+          otp,
+        },
+      });
+
+      return {
+        message: 'User created. Please verify your email with the OTP sent.',
+        userId: savedUser.id,
+      };
     } catch (error: any) {
       if (error.code === 'P2002') {
         throw new BadRequestException('Username or email already exists');
@@ -50,7 +71,70 @@ export class AuthService {
     }
   }
 
-  async login(body: LoginDto): Promise<AuthResponseDto> {
+  async verifyOtp(userId: string, otp: string): Promise<AuthResponse> {
+    const otpRecord = await this.authRepository.findOtpByUserId(userId);
+
+    if (!otpRecord || !otpRecord.otp) {
+      throw new BadRequestException('OTP not found');
+    }
+
+    if (otpRecord.expires_at < new Date()) {
+      throw new BadRequestException('OTP has expired');
+    }
+
+    const isValid = await bcrypt.compare(otp, otpRecord.otp);
+
+    if (!isValid) {
+      throw new BadRequestException('Invalid OTP');
+    }
+
+    await this.userRepository.update(userId, { is_verified: true });
+
+    await this.authRepository.deleteOtpByUserId(userId);
+
+    const user = await this.userRepository.findByIdOrThrow(userId);
+
+    if (!user) {
+      throw new InternalServerErrorException(
+        'User not found after OTP verification',
+      );
+    }
+
+    const tokens = await this.generateTokens(user.id, user.email);
+
+    await this.updateRefreshToken(user.id, tokens.refreshToken);
+
+    return {
+      ...tokens,
+      user: new User(user),
+    };
+  }
+
+  async resendOtp(userId: string): Promise<{ message: string }> {
+    const user = await this.userRepository.findByIdOrThrow(userId);
+
+    if (!user) {
+      throw new BadRequestException('User not found');
+    }
+
+    if (user.is_verified) {
+      throw new BadRequestException('User is already verified');
+    }
+
+    const otp = await this.generateOtp(userId);
+
+    await this.mailService.sendConfirmationEmail({
+      to: user.email,
+      context: {
+        username: user.username,
+        otp,
+      },
+    });
+
+    return { message: 'OTP resent successfully' };
+  }
+
+  async login(body: LoginDto): Promise<AuthResponse> {
     const { email, password } = body;
 
     const user = await this.userRepository.findByEmailOrThrow(email);
@@ -59,11 +143,20 @@ export class AuthService {
       throw new UnauthorizedException('Invalid email or password');
     }
 
-    await this.comparePasswords(password, user.password);
+    const {
+      id,
+      email: userEmail,
+      password: hashedPassword,
+      is_verified,
+    } = user;
 
-    const tokens = await this.generateTokens(user.id, user.email);
+    await this.comparePasswords(password, hashedPassword);
 
-    await this.updateRefreshToken(user.id, tokens.refreshToken);
+    this.checkUserVerification(is_verified);
+
+    const tokens = await this.generateTokens(id, userEmail);
+
+    await this.updateRefreshToken(id, tokens.refreshToken);
 
     return {
       ...tokens,
@@ -79,11 +172,11 @@ export class AuthService {
 
       const user = await this.userRepository.findByIdOrThrow(payload.sub);
 
-      if (!user || !user.refreshToken) {
+      if (!user || !user.refresh_token) {
         throw new UnauthorizedException('Access denied');
       }
 
-      const isValid = await bcrypt.compare(refreshToken, user.refreshToken);
+      const isValid = await bcrypt.compare(refreshToken, user.refresh_token);
 
       if (!isValid) {
         throw new UnauthorizedException('Access denied');
@@ -101,7 +194,7 @@ export class AuthService {
 
   async logout(userId: string): Promise<void> {
     await this.userRepository.update(userId, {
-      refreshToken: null,
+      refresh_token: null,
     });
   }
 
@@ -113,6 +206,36 @@ export class AuthService {
     }
 
     return new User(user);
+  }
+
+  private async generateOtp(userId: string): Promise<string> {
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+    const expiry = this.generateExpiryDate(5);
+
+    const hashedOtp = await this.hashOtp(otp);
+
+    await this.authRepository.createOtp(userId, hashedOtp, expiry);
+
+    return otp;
+  }
+
+  private generateExpiryDate(minutes: number): Date {
+    const expiry = new Date();
+    expiry.setMinutes(expiry.getMinutes() + minutes);
+    return expiry;
+  }
+
+  private async hashOtp(otp: string): Promise<string> {
+    return bcrypt.hash(otp, 10);
+  }
+
+  private checkUserVerification(isVerified: boolean): void {
+    if (!isVerified) {
+      throw new UnauthorizedException(
+        'Please verify your email before logging in',
+      );
+    }
   }
 
   private async generateTokens(
@@ -142,7 +265,7 @@ export class AuthService {
     const hashedRefreshToken = await bcrypt.hash(refreshToken, 10);
 
     await this.userRepository.update(userId, {
-      refreshToken: hashedRefreshToken,
+      refresh_token: hashedRefreshToken,
     });
   }
 
