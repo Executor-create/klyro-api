@@ -6,10 +6,14 @@ import { JwtModule } from '@nestjs/jwt';
 import { UserRepository } from 'src/modules/users/users.repository';
 import { AuthGuard } from 'src/shared/guards/auth.guard';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { MailService } from 'src/mail/mail.service';
+import { MailModule } from 'src/mail/mail.module';
+import { AuthRepository } from './auth.repository';
 
 @Module({
   imports: [
     PrismaModule,
+    MailModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({
@@ -20,7 +24,13 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, UserRepository, AuthGuard],
+  providers: [
+    AuthService,
+    UserRepository,
+    MailService,
+    AuthGuard,
+    AuthRepository,
+  ],
   exports: [AuthService],
 })
 export class AuthModule {}
