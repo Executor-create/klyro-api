@@ -16,15 +16,18 @@ export class User implements Partial<PrismaUser> {
   @ApiHideProperty()
   password!: string;
 
+  @ApiProperty()
+  is_verified!: boolean;
+
   @Exclude()
   @ApiHideProperty()
-  refreshToken?: string | null;
+  refresh_token?: string | null;
 
   @ApiProperty()
-  createdAt!: Date;
+  created_at!: Date;
 
   @ApiProperty()
-  updatedAt!: Date;
+  updated_at!: Date;
 
   constructor(partial: Partial<User>) {
     Object.assign(this, partial);
