@@ -49,8 +49,10 @@ export class AuthService {
 
       const otp = await this.generateOtp(savedUser.id);
 
-      await this.mailService.sendConfirmationEmail({
+      await this.mailService.sendEmail({
         to: email,
+        template: 'signup-otp',
+        subject: 'Verify your email',
         context: {
           username,
           otp,
@@ -123,8 +125,10 @@ export class AuthService {
 
     const otp = await this.generateOtp(userId);
 
-    await this.mailService.sendConfirmationEmail({
+    await this.mailService.sendEmail({
       to: user.email,
+      template: 'signup-otp',
+      subject: 'Verify your email',
       context: {
         username: user.username,
         otp,
