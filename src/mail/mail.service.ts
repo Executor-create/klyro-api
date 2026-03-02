@@ -1,31 +1,36 @@
-import { ISendMailOptions, MailerService } from '@nestjs-modules/mailer';
+import { ISendMailOptions } from '@nestjs-modules/mailer';
+import { InjectQueue } from '@nestjs/bullmq';
 import { Injectable, InternalServerErrorException } from '@nestjs/common';
+import { Queue } from 'bullmq';
 
 export interface SendEmailParams {
   to: string;
+  subject: string;
+  template: string;
   context: ISendMailOptions['context'];
 }
 
 @Injectable()
 export class MailService {
-  constructor(private readonly mailerService: MailerService) {}
+  constructor(@InjectQueue('email-queue') private readonly emailQueue: Queue) {}
 
-  async sendConfirmationEmail(params: SendEmailParams): Promise<void> {
+  async sendEmail(params: SendEmailParams): Promise<void> {
     try {
-      const { to, context } = params;
+      const { to, template, subject, context } = params;
 
       const sendMailParams = {
         to,
-        subject: 'Welcome to Klyro!',
-        template: 'signup-otp',
+        subject,
+        template,
         context,
       };
 
-      await this.mailerService.sendMail(sendMailParams);
+      await this.emailQueue.add('send-email', sendMailParams, {
+        attempts: 3,
+        backoff: 5000,
+      });
     } catch (error) {
-      throw new InternalServerErrorException(
-        'Failed to send confirmation email',
-      );
+      throw new InternalServerErrorException('Failed to send email');
     }
   }
 }
