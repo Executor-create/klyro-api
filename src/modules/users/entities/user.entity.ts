@@ -14,7 +14,7 @@ export class User implements Partial<PrismaUser> {
 
   @Exclude()
   @ApiHideProperty()
-  password!: string;
+  password!: string | null;
 
   @ApiProperty()
   is_verified!: boolean;
