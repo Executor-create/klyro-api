@@ -6,6 +6,7 @@ import { ConfigModule } from '@nestjs/config';
 import { PrismaModule } from './database/prisma.module';
 import { BullModule } from '@nestjs/bullmq';
 import { queueConfig } from './config/queue';
+import { DiscordModule } from './integrations/discord/discord.module';
 
 @Module({
   imports: [
@@ -13,6 +14,7 @@ import { queueConfig } from './config/queue';
     BullModule.forRoot(queueConfig),
     PrismaModule,
     AuthModule,
+    DiscordModule,
   ],
   controllers: [AppController],
   providers: [AppService],
