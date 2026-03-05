@@ -13,6 +13,12 @@ export class UserRepository {
     });
   }
 
+  async findByEmail(email: string): Promise<User | null> {
+    return this.prisma.user.findUnique({
+      where: { email },
+    });
+  }
+
   async findByIdOrThrow(id: string): Promise<User | null> {
     const user = await this.prisma.user.findUniqueOrThrow({
       where: { id },
