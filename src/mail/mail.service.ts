@@ -15,10 +15,14 @@ export interface SendEmailParams {
 export class MailService {
   constructor(
     @InjectQueue('email-queue') private readonly emailQueue: Queue,
-    private readonly configService: ConfigService
-  ) { }
+    private readonly configService: ConfigService,
+  ) {}
 
-  async sendSignupEmail(to: string, username: string, otp: string): Promise<void> {
+  async sendSignupEmail(
+    to: string,
+    username: string,
+    otp: string,
+  ): Promise<void> {
     try {
       const sendMailParams = {
         to,
@@ -35,7 +39,11 @@ export class MailService {
     }
   }
 
-  async sendForgotPasswordEmail(to: string, username: string, token: string): Promise<void> {
+  async sendForgotPasswordEmail(
+    to: string,
+    username: string,
+    token: string,
+  ): Promise<void> {
     try {
       const reset_url = `${this.configService.get('FRONTEND_URL')}/reset-password?token=${token}`;
 
@@ -50,7 +58,9 @@ export class MailService {
         backoff: 5000,
       });
     } catch (error) {
-      throw new InternalServerErrorException('Failed to send forgot password email');
+      throw new InternalServerErrorException(
+        'Failed to send forgot password email',
+      );
     }
   }
 
